@@ -5,7 +5,8 @@ let isSending = false;
 let stopRequested = false;
 
 const phonesEl        = document.getElementById('phones');
-const messageEl       = document.getElementById('message');
+const messageBeforeEl  = document.getElementById('messageBefore');
+const messageAfterEl   = document.getElementById('messageAfter');
 const imageInput      = document.getElementById('imageInput');
 const imagePreview    = document.getElementById('imagePreview');
 const imageName       = document.getElementById('imageName');
@@ -40,9 +41,26 @@ async function checkWhatsAppTab() {
 checkWhatsAppTab();
 
 // ─── Phone parsing ────────────────────────────────────────────
+const DEFAULT_COUNTRY_CODE = '+54';
+
 function parsePhones(raw) {
   if (!raw.trim()) return [];
-  return raw.split(/[,;\n]+/).map(p => p.trim().replace(/\s+/g, '')).filter(p => p.length > 4);
+  return raw.split(/[,;\n]+/).map(p => {
+    let phone = p.trim().replace(/\s+/g, '');
+    if (phone.length > 4) {
+      if (!phone.startsWith('+')) {
+        if (phone.startsWith('54')) {
+          phone = '+' + phone;
+        } else if (phone.startsWith('0')) {
+          phone = '+54' + phone.substring(1);
+        } else {
+          phone = DEFAULT_COUNTRY_CODE + phone;
+        }
+      }
+      return phone;
+    }
+    return null;
+  }).filter(p => p !== null);
 }
 phonesEl.addEventListener('input', () => {
   const phones = parsePhones(phonesEl.value);
@@ -154,8 +172,9 @@ btnSend.addEventListener('click', async () => {
   const phones = parsePhones(phonesEl.value);
   if (phones.length === 0) { logMsg('err', 'Agregá al menos un número'); return; }
 
-  const message = messageEl.value.trim();
-  if (!imageFile && !message) { logMsg('err', 'Agregá una imagen o un mensaje'); return; }
+  const messageBefore = messageBeforeEl.value.trim();
+  const messageAfter = messageAfterEl.value.trim();
+  if (!imageFile && !messageBefore && !messageAfter) { logMsg('err', 'Agregá una imagen o un mensaje'); return; }
 
   const tabs = await chrome.tabs.query({ url: 'https://web.whatsapp.com/*' });
   if (tabs.length === 0) { logMsg('err', 'Abrí WhatsApp Web primero'); return; }
@@ -205,11 +224,20 @@ btnSend.addEventListener('click', async () => {
       if (!alive) {
         logMsg('err', `${phone} — script no respondió`);
         errors++;
+        saveToHistory({
+          phone,
+          messageBefore,
+          messageAfter,
+          hasImage: !!imageFile,
+          success: false,
+          error: 'Script no respondió',
+          timestamp: new Date().toISOString()
+        });
         continue;
       }
 
       // 5. Pedir al content script que envíe (ya está en la página correcta)
-      const result = await sendMessage(tabId, { message, imageBase64, imageMimeType, imageFileName });
+      const result = await sendMessage(tabId, { messageBefore, messageAfter, imageBase64, imageMimeType, imageFileName });
       if (result && result.success) {
         logMsg('ok', `${phone} — enviado`);
         sent++;
@@ -217,9 +245,27 @@ btnSend.addEventListener('click', async () => {
         logMsg('err', `${phone} — ${result?.error || 'error desconocido'}`);
         errors++;
       }
+      saveToHistory({
+        phone,
+        messageBefore,
+        messageAfter,
+        hasImage: !!imageFile,
+        success: result && result.success,
+        error: result?.error || null,
+        timestamp: new Date().toISOString()
+      });
     } catch (err) {
       logMsg('err', `${phone} — ${err.message}`);
       errors++;
+      saveToHistory({
+        phone,
+        messageBefore,
+        messageAfter,
+        hasImage: !!imageFile,
+        success: false,
+        error: err.message,
+        timestamp: new Date().toISOString()
+      });
     }
 
     if (i < phones.length - 1 && !stopRequested) {
@@ -263,13 +309,15 @@ function fileToBase64(file) {
 }
 
 // ─── Persist state ────────────────────────────────────────────
-chrome.storage.local.get(['savedPhones', 'savedMessage', 'savedDelay'], (data) => {
+chrome.storage.local.get(['savedPhones', 'savedMessageBefore', 'savedMessageAfter', 'savedDelay'], (data) => {
   if (data.savedPhones) { phonesEl.value = data.savedPhones; phonesEl.dispatchEvent(new Event('input')); }
-  if (data.savedMessage) messageEl.value = data.savedMessage;
+  if (data.savedMessageBefore) messageBeforeEl.value = data.savedMessageBefore;
+  if (data.savedMessageAfter) messageAfterEl.value = data.savedMessageAfter;
   if (data.savedDelay) delayInput.value = data.savedDelay;
 });
 phonesEl.addEventListener('change', () => chrome.storage.local.set({ savedPhones: phonesEl.value }));
-messageEl.addEventListener('change', () => chrome.storage.local.set({ savedMessage: messageEl.value }));
+messageBeforeEl.addEventListener('change', () => chrome.storage.local.set({ savedMessageBefore: messageBeforeEl.value }));
+messageAfterEl.addEventListener('change', () => chrome.storage.local.set({ savedMessageAfter: messageAfterEl.value }));
 delayInput.addEventListener('change', () => chrome.storage.local.set({ savedDelay: delayInput.value }));
 
 // ─── Debug button ─────────────────────────────────────────────
@@ -292,4 +340,100 @@ document.getElementById('btnDebug').addEventListener('click', async () => {
     logMsg('info', `#main: ${res.hasMain ? '✓' : '✗'}`);
     logMsg('info', `Attach selectors: ${res.attachSelector || 'ninguno'}`);
   });
+});
+
+// ─── Tabs ─────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab' + tab.dataset.tab.charAt(0).toUpperCase() + tab.dataset.tab.slice(1)).classList.add('active');
+    if (tab.dataset.tab === 'history') loadHistory();
+  });
+});
+
+// ─── History functions ─────────────────────────────────────────
+const HISTORY_KEY = 'messageHistory';
+
+function getHistory() {
+  return new Promise(resolve => {
+    chrome.storage.local.get([HISTORY_KEY], data => {
+      resolve(data[HISTORY_KEY] || []);
+    });
+  });
+}
+
+function saveToHistory(record) {
+  getHistory().then(history => {
+    history.unshift(record);
+    const trimmed = history.slice(0, 500);
+    chrome.storage.local.set({ [HISTORY_KEY]: trimmed });
+  });
+}
+
+function formatDate(date) {
+  return date.toLocaleString('es-AR', { 
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
+}
+
+async function loadHistory() {
+  const history = await getHistory();
+  const list = document.getElementById('historyList');
+  const sent = history.filter(r => r.success).length;
+  const errors = history.filter(r => !r.success).length;
+  
+  document.getElementById('statSent').textContent = sent;
+  document.getElementById('statErrors').textContent = errors;
+  document.getElementById('statTotal').textContent = history.length;
+
+  if (history.length === 0) {
+    list.innerHTML = '<p style="color:var(--muted);text-align:center;padding:20px;">No hay registros aún</p>';
+    return;
+  }
+
+  list.innerHTML = history.map(r => `
+    <div style="padding:8px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="color:${r.success ? 'var(--accent)' : '#ff6b6b'};font-weight:600;">
+          ${r.success ? '✓' : '✗'} ${r.phone}
+        </div>
+        <div style="color:var(--muted);font-size:9px;">${r.messageBefore ? 'Antes: ' + r.messageBefore : ''}${r.messageAfter ? ' | Después: ' + r.messageAfter : ''}${(!r.messageBefore && !r.messageAfter) ? '(sin mensaje)' : ''}</div>
+        <div style="color:var(--muted);font-size:9px;">${formatDate(new Date(r.timestamp))}</div>
+      </div>
+      <div style="font-size:10px;">${r.hasImage ? '🖼️' : ''}</div>
+    </div>
+  `).join('');
+}
+
+document.getElementById('btnExportCsv').addEventListener('click', async () => {
+  const history = await getHistory();
+  const headers = ['Fecha', 'Teléfono', 'Mensaje antes', 'Mensaje después', 'Imagen', 'Estado'];
+  const rows = history.map(r => [
+    formatDate(new Date(r.timestamp)),
+    r.phone,
+    `"${(r.messageBefore || '').replace(/"/g, '""')}"`,
+    `"${(r.messageAfter || '').replace(/"/g, '""')}"`,
+    r.hasImage ? 'Sí' : 'No',
+    r.success ? 'Enviado' : 'Error'
+  ]);
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  // UTF-8 BOM for Excel compatibility
+  const BOM = '\uFEFF';
+  const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `whatsapp_historial_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('btnClearHistory').addEventListener('click', () => {
+  if (confirm('¿Querés borrar todo el historial?')) {
+    chrome.storage.local.set({ [HISTORY_KEY]: [] });
+    loadHistory();
+  }
 });

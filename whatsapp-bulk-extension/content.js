@@ -34,7 +34,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 });
 
-async function doSend({ message, imageBase64, imageMimeType, imageFileName }) {
+async function doSend({ messageBefore, messageAfter, imageBase64, imageMimeType, imageFileName }) {
   try {
     // 1. Esperar input del chat
     const inputBox = await waitForElement(
@@ -44,27 +44,67 @@ async function doSend({ message, imageBase64, imageMimeType, imageFileName }) {
     if (!inputBox) return { success: false, error: 'Chat no cargó' };
     await sleep(600);
 
-    if (imageBase64) {
-      // 2. Construir File
+    const hasBefore = messageBefore && messageBefore.trim();
+    const hasAfter = messageAfter && messageAfter.trim();
+    const hasImage = !!imageBase64;
+
+    // Caso 1: Solo mensaje antes (sin imagen)
+    if (hasBefore && !hasImage && !hasAfter) {
+      inputBox.click();
+      inputBox.focus();
+      await sleep(300);
+      document.execCommand('selectAll', false, null);
+      document.execCommand('insertText', false, messageBefore);
+      await sleep(300);
+      await clickSend();
+      await sleep(1200);
+      return { success: true };
+    }
+
+    // Caso 2: Solo mensaje después (sin imagen) - tratado como mensaje normal
+    if (hasAfter && !hasImage && !hasBefore) {
+      inputBox.click();
+      inputBox.focus();
+      await sleep(300);
+      document.execCommand('selectAll', false, null);
+      document.execCommand('insertText', false, messageAfter);
+      await sleep(300);
+      await clickSend();
+      await sleep(1200);
+      return { success: true };
+    }
+
+    // Caso 3: Con imagen - enviar mensaje antes (si existe), luego imagen con caption
+    if (hasImage) {
+      // 3a. Enviar mensaje antes de la imagen si existe
+      if (hasBefore) {
+        inputBox.click();
+        inputBox.focus();
+        await sleep(300);
+        document.execCommand('selectAll', false, null);
+        document.execCommand('insertText', false, messageBefore);
+        await sleep(300);
+        await clickSend();
+        await sleep(1500);
+      }
+
+      // 3b. Adjuntar imagen
       const bytes = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
       const file = new File([bytes], imageFileName || 'imagen.jpg', { type: imageMimeType || 'image/jpeg' });
 
-      // 3. Intentar adjuntar con múltiples métodos en secuencia
       const attached = await tryAttachImage(file);
       if (!attached) return { success: false, error: 'No se pudo adjuntar la imagen' };
 
-      // 4. Esperar que el modal de envío aparezca (cualquier overlay/modal nuevo)
+      // 3c. Esperar que el modal de envío aparezca
       await sleep(2000);
 
-      // 5. Caption
-      if (message && message.trim()) {
-        // Buscar el campo de caption con selectores amplios
+      // 3d. Caption después de la imagen
+      if (hasAfter) {
         const captionBox = await waitForAnyElement([
           '[data-testid="media-caption-input-container"] [contenteditable="true"]',
           'div[contenteditable="true"][class*="caption"]',
           'div[contenteditable="true"][data-tab="10"]',
           'div[contenteditable="true"][aria-placeholder]',
-          // Seleccionar el contenteditable que NO sea el principal del chat
           'span[contenteditable="true"]',
         ], 3000);
 
@@ -72,31 +112,25 @@ async function doSend({ message, imageBase64, imageMimeType, imageFileName }) {
           captionBox.click();
           captionBox.focus();
           await sleep(300);
-          document.execCommand('insertText', false, message);
+          document.execCommand('selectAll', false, null);
+          document.execCommand('insertText', false, messageAfter);
           await sleep(400);
         }
       }
 
-    } else {
-      // Solo texto
-      if (!message || !message.trim()) return { success: false, error: 'Sin imagen ni mensaje' };
-      inputBox.click();
-      inputBox.focus();
-      await sleep(200);
-      document.execCommand('insertText', false, message);
-      await sleep(300);
+      // 3e. Enviar
+      await sleep(500);
+      const sent = await clickSend();
+      if (!sent) {
+        const active = document.activeElement;
+        if (active) active.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }));
+      }
+      await sleep(1200);
+      return { success: true };
     }
 
-    // 6. Enviar — buscar el botón de send que esté visible
-    await sleep(500);
-    const sent = await clickSend();
-    if (!sent) {
-      // Fallback Enter
-      const active = document.activeElement;
-      if (active) active.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }));
-    }
-    await sleep(1200);
-    return { success: true };
+    // Si llegó aquí sin imagen ni mensajes
+    return { success: false, error: 'Sin imagen ni mensaje' };
 
   } catch (err) {
     return { success: false, error: err.message };

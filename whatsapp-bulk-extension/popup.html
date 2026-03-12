@@ -9,16 +9,16 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root {
-      --green: #00a884;
-      --green-dark: #008069;
-      --green-light: #d9fdd3;
-      --bg: #0a0f0d;
-      --surface: #111c18;
-      --surface2: #1a2b24;
-      --border: #2a3d35;
+      --blue: #2563eb;
+      --blue-dark: #1d4ed8;
+      --blue-light: #dbeafe;
+      --bg: #0a0f1a;
+      --surface: #0f1724;
+      --surface2: #1a2740;
+      --border: #2a3d5c;
       --text: #e9edef;
       --muted: #8696a0;
-      --accent: #25d366;
+      --accent: #3b82f6;
     }
 
     body {
@@ -26,13 +26,13 @@
       background: var(--bg);
       color: var(--text);
       width: 400px;
-      min-height: 560px;
-      overflow: hidden;
+      min-height: 680px;
+      overflow-x: hidden;
     }
 
     /* Header */
     .header {
-      background: linear-gradient(135deg, var(--green-dark) 0%, var(--green) 100%);
+      background: linear-gradient(135deg, var(--blue-dark) 0%, var(--blue) 100%);
       padding: 18px 20px 16px;
       display: flex;
       align-items: center;
@@ -115,7 +115,7 @@
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 1px;
-      color: var(--green);
+      color: var(--blue);
       margin-bottom: 6px;
     }
 
@@ -136,7 +136,7 @@
       line-height: 1.5;
     }
     textarea:focus, input[type="text"]:focus {
-      border-color: var(--green);
+      border-color: var(--blue);
     }
     textarea::placeholder, input::placeholder {
       color: var(--muted);
@@ -153,7 +153,7 @@
       margin-bottom: 6px;
     }
     .count-badge {
-      background: var(--green-dark);
+      background: var(--blue-dark);
       color: white;
       font-size: 10px;
       font-weight: 700;
@@ -185,8 +185,8 @@
       transition: all 0.2s;
     }
     .btn-import:hover {
-      border-color: var(--green);
-      color: var(--green);
+      border-color: var(--blue);
+      color: var(--blue);
       background: rgba(0,168,132,0.08);
     }
     .btn-import svg { width: 13px; height: 13px; flex-shrink: 0; }
@@ -204,12 +204,12 @@
       overflow: hidden;
     }
     .image-upload-area:hover {
-      border-color: var(--green);
+      border-color: var(--blue);
       background: rgba(0,168,132,0.05);
     }
     .image-upload-area.has-image {
       border-style: solid;
-      border-color: var(--green);
+      border-color: var(--blue);
       padding: 8px;
     }
     .image-upload-area input[type="file"] {
@@ -234,7 +234,7 @@
       font-weight: 500;
     }
     .upload-placeholder strong {
-      color: var(--green);
+      color: var(--blue);
       font-weight: 700;
     }
     #imagePreview {
@@ -246,7 +246,7 @@
     }
     .image-name {
       font-size: 10px;
-      color: var(--green);
+      color: var(--blue);
       margin-top: 4px;
       font-weight: 600;
       display: none;
@@ -269,7 +269,7 @@
       margin-bottom: 8px;
     }
     .progress-label { font-size: 11px; font-weight: 600; color: var(--text); }
-    .progress-count { font-size: 11px; color: var(--green); font-weight: 700; }
+    .progress-count { font-size: 11px; color: var(--blue); font-weight: 700; }
     .progress-bar {
       height: 4px;
       background: var(--surface2);
@@ -278,7 +278,7 @@
     }
     .progress-fill {
       height: 100%;
-      background: linear-gradient(90deg, var(--green-dark), var(--accent));
+      background: linear-gradient(90deg, var(--blue-dark), var(--accent));
       border-radius: 4px;
       transition: width 0.4s ease;
       width: 0%;
@@ -310,7 +310,7 @@
     /* Send button */
     .btn-send {
       width: 100%;
-      background: linear-gradient(135deg, var(--green-dark), var(--green));
+      background: linear-gradient(135deg, var(--blue-dark), var(--blue));
       border: none;
       border-radius: 12px;
       color: white;
@@ -385,12 +385,55 @@
       cursor: pointer;
       transition: all 0.2s;
     }
-    .btn-debug:hover { border-color: var(--green); color: var(--green); }
+    .btn-debug:hover { border-color: var(--blue); color: var(--blue); }
 
     /* Scrollbar */
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .tab {
+      flex: 1;
+      padding: 12px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active {
+      color: var(--blue);
+      border-bottom-color: var(--blue);
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* History stats */
+    .history-stats {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .stat-box {
+      flex: 1;
+      background: var(--surface2);
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+    }
+    .stat-num { font-size: 18px; font-weight: 700; color: var(--text); }
+    .stat-label { font-size: 9px; color: var(--muted); text-transform: uppercase; }
+    .stat-box.success .stat-num { color: var(--accent); }
+    .stat-box.error .stat-num { color: #ff6b6b; }
   </style>
 </head>
 <body>
@@ -408,7 +451,15 @@
     <span class="status-text" id="statusText">Verificando WhatsApp Web...</span>
   </div>
 
-  <div class="content">
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" data-tab="send">✉️ Enviar</div>
+    <div class="tab" data-tab="history">📋 Historial</div>
+  </div>
+
+  <!-- Tab: Enviar -->
+  <div class="tab-content active" id="tabSend">
+    <div class="content">
 
     <!-- Teléfonos -->
     <div class="input-group">
@@ -430,6 +481,12 @@
       </div>
     </div>
 
+    <!-- Mensaje antes de imagen -->
+    <div class="input-group">
+      <div class="section-label">💬 Mensaje antes de imagen (opcional)</div>
+      <textarea id="messageBefore" placeholder="Se envía antes de la imagen..."></textarea>
+    </div>
+
     <!-- Imagen -->
     <div class="input-group">
       <div class="section-label">🖼️ Imagen a enviar (opcional)</div>
@@ -445,10 +502,10 @@
       </div>
     </div>
 
-    <!-- Mensaje -->
+    <!-- Mensaje después de imagen -->
     <div class="input-group">
-      <div class="section-label">💬 Mensaje (opcional)</div>
-      <textarea id="message" placeholder="Escribí el texto que acompaña la imagen...&#10;(podés dejarlo vacío para enviar solo la imagen)"></textarea>
+      <div class="section-label">💬 Mensaje después de imagen (opcional)</div>
+      <textarea id="messageAfter" placeholder="Se envía después de la imagen..."></textarea>
     </div>
 
     <div class="divider"></div>
@@ -485,6 +542,33 @@
       <span id="btnText">Enviar a todos</span>
     </button>
 
+    </div>
+  </div>
+
+  <!-- Tab: Historial -->
+  <div class="tab-content" id="tabHistory">
+    <div class="content">
+      <div class="history-stats">
+        <div class="stat-box success">
+          <div class="stat-num" id="statSent">0</div>
+          <div class="stat-label">Enviados</div>
+        </div>
+        <div class="stat-box error">
+          <div class="stat-num" id="statErrors">0</div>
+          <div class="stat-label">Errores</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" id="statTotal">0</div>
+          <div class="stat-label">Total</div>
+        </div>
+      </div>
+      <div class="section-label">📋 Registros</div>
+      <div id="historyList" style="max-height:320px;overflow-y:auto;background:var(--surface);border-radius:8px;padding:8px;font-size:10px;"></div>
+      <button class="btn-send" id="btnExportCsv" style="margin-top:12px;">
+        📥 Exportar CSV
+      </button>
+      <button class="btn-debug" id="btnClearHistory" style="margin-top:8px;">🗑️ Limpiar historial</button>
+    </div>
   </div>
 
   <script src="popup.js"></script>
